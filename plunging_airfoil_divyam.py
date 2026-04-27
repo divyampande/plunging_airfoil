@@ -1,11 +1,3 @@
-"""
-=============================================================================
-Unified Unsteady Aerodynamics Solver
-Methods: LVM (1-Panel), UDVM (N-Panel)
-Motion: Plunging Only (Cosine Kinematics for Smooth Start)
-=============================================================================
-"""
-
 import os
 import numpy as np
 import matplotlib
@@ -17,9 +9,8 @@ from matplotlib.patches import Polygon
 from scipy.special import hankel2
 from numba import njit, prange
 
-# ============================================================================
 # MASTER CONFIGURATION
-# ============================================================================
+
 # Core Physics
 METHOD = "UDVM"  # 'LVM' or 'UDVM'
 K_RED = 1  # Reduced frequency (k)
@@ -49,10 +40,9 @@ NU_ARTIF = 2e-4
 OUT_DIR = "results_master"
 os.makedirs(OUT_DIR, exist_ok=True)
 
-
-# ============================================================================
 # GEOMETRY UTILITIES
-# ============================================================================
+
+
 def get_naca0012_coords(chord=1.0, n_points=50):
     beta = np.linspace(0, np.pi, n_points)
     x = 0.5 * chord * (1 - np.cos(beta))
@@ -72,9 +62,9 @@ def get_naca0012_coords(chord=1.0, n_points=50):
     return np.concatenate([x, x[::-1]]), np.concatenate([yt, -yt[::-1]])
 
 
-# ============================================================================
 # NUMBA KERNELS
-# ============================================================================
+
+
 @njit(parallel=True, fastmath=True)
 def biot_savart_kernel(
     target_x, target_y, source_x, source_y, gamma, sigma, use_lamb_oseen
@@ -139,9 +129,9 @@ def render_eulerian_field(X_grid, Y_grid, vx, vy, vg, vs, xmax):
     return omega
 
 
-# ============================================================================
 # UNIFIED SOLVER CLASS (LVM & UDVM)
-# ============================================================================
+
+
 class UnifiedVortexSolver:
     def __init__(self, method, k_red, kh, n_panels=N_PANELS, lamb_oseen=USE_LAMB_OSEEN):
         self.method = method.upper()
@@ -184,7 +174,6 @@ class UnifiedVortexSolver:
         self.snapshots = []
 
     def solve_step(self, t):
-        # NEW KINEMATICS: Cosine wave for smooth start
         h = -self.h0 * np.cos(self.omega * t)
         h_dot = self.h0 * self.omega * np.sin(self.omega * t)
         h_ddot = self.h0 * self.omega**2 * np.cos(self.omega * t)
@@ -290,9 +279,6 @@ class UnifiedVortexSolver:
                         "ws": self.ws.copy(),
                     }
                 )
-
-        # --- NEW: Calculate Time-Averaged Ct ---
-        # Average over the last full cycle to ignore startup transients
         steps_in_cycle = int(STEPS_PER_CYCLE)
         if len(self.Ct_hist) >= steps_in_cycle:
             mean_Ct = np.mean(self.Ct_hist[-steps_in_cycle:])
@@ -303,9 +289,9 @@ class UnifiedVortexSolver:
         print(f"  -> Mean Ct (last cycle): {mean_Ct:+.4f} [{regime}]")
 
 
-# ============================================================================
 # ANALYTICAL VALIDATION
-# ============================================================================
+
+
 def theodorsen_function(k):
     if k == 0:
         return 1.0 + 0.0j
@@ -319,7 +305,6 @@ def analytical_cl_plunge(k, h0, t, U, c):
     Ck = theodorsen_function(k)
     F, G = Ck.real, Ck.imag
 
-    # NEW KINEMATICS
     h_dot = h0 * omega * np.sin(omega * t)
     h_ddot = h0 * omega**2 * np.cos(omega * t)
 
@@ -328,9 +313,9 @@ def analytical_cl_plunge(k, h0, t, U, c):
     return Cl_circ + Cl_nc
 
 
-# ============================================================================
 # VISUALIZATION SUITE
-# ============================================================================
+
+
 def plot_history(solver, prefix):
     fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
     axes[0].plot(solver.t_hist, solver.Cl_hist, "b-", lw=1.5)
@@ -425,7 +410,6 @@ def generate_animation(solvers, titles, filename):
             )
             imgs.append(img)
         else:
-            # Initialize without colormaps
             img = ax.scatter([], [], alpha=0.6, edgecolors="none")
             imgs.append(img)
 
@@ -457,12 +441,11 @@ def generate_animation(solvers, titles, filename):
                     wg = snap["wg"]
                     sizes = 40 * np.abs(wg) / (np.max(np.abs(wg)) + 1e-10) + 10
 
-                    # Explicitly define red (CCW) and blue (CW) hex colors
                     colors = ["#d62728" if g > 0 else "#1f77b4" for g in wg]
 
                     imgs[j].set_offsets(np.column_stack([snap["wx"], snap["wy"]]))
                     imgs[j].set_sizes(sizes)
-                    imgs[j].set_color(colors)  # <-- Bulletproof color override
+                    imgs[j].set_color(colors)
 
             returns.extend([polygons[j], imgs[j]])
         return returns
@@ -474,9 +457,8 @@ def generate_animation(solvers, titles, filename):
     plt.close()
 
 
-# ============================================================================
 # EXECUTION ROUTINES
-# ============================================================================
+
 if __name__ == "__main__":
     if RUN_STANDARD:
         s = UnifiedVortexSolver(METHOD, K_RED, KH_VAL)
