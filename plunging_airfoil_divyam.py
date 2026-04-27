@@ -27,7 +27,7 @@ KH_VAL = 0.3  # Non-dimensional plunge velocity (kh = k * h)
 
 # Features
 USE_LAMB_OSEEN = True  # Desingularize with viscous core growth
-USE_EULERIAN = False  # Project Lagrangian particles to Eulerian grid
+USE_EULERIAN = True  # Project Lagrangian particles to Eulerian grid
 
 # Run Modes
 RUN_STANDARD = True
@@ -425,15 +425,8 @@ def generate_animation(solvers, titles, filename):
             )
             imgs.append(img)
         else:
-            img = ax.scatter(
-                [],
-                [],
-                cmap="coolwarm",
-                vmin=-0.1,
-                vmax=0.1,
-                alpha=0.6,
-                edgecolors="none",
-            )
+            # Initialize without colormaps
+            img = ax.scatter([], [], alpha=0.6, edgecolors="none")
             imgs.append(img)
 
         poly = Polygon(np.column_stack([x_base, y_base]), facecolor=af_color, alpha=0.9)
@@ -463,9 +456,13 @@ def generate_animation(solvers, titles, filename):
                 if len(snap["wx"]) > 0:
                     wg = snap["wg"]
                     sizes = 40 * np.abs(wg) / (np.max(np.abs(wg)) + 1e-10) + 10
+
+                    # Explicitly define red (CCW) and blue (CW) hex colors
+                    colors = ["#d62728" if g > 0 else "#1f77b4" for g in wg]
+
                     imgs[j].set_offsets(np.column_stack([snap["wx"], snap["wy"]]))
-                    imgs[j].set_array(wg)
                     imgs[j].set_sizes(sizes)
+                    imgs[j].set_color(colors)  # <-- Bulletproof color override
 
             returns.extend([polygons[j], imgs[j]])
         return returns
